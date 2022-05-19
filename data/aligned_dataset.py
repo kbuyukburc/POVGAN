@@ -37,7 +37,7 @@ class POVGANDataset(BaseDataset):
         img = Image.open(image_path).convert('RGB')
         B_tensor = self.camera_transform(img)
         input_dict = {'label': A_tensor, 'inst': 0, 'image': B_tensor, 
-                'feat': 0, 'path': lidar_path}
+                'feat': 0, 'path': lidar_path, 'image_path': image_path}
         return input_dict
         
     def __len__(self):
