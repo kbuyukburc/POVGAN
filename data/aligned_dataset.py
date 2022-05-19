@@ -12,24 +12,32 @@ class POVGANDataset(BaseDataset):
     camera_transform = transforms.Compose([transforms.ToTensor(), transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
     def initialize(self, opt):
         self.opt = opt
-        self.root = opt.dataroot
-        
+        self.root = opt.dataroot        
         self.lidar_files = []
         self.image_files = []
+        self.mask_files = []
         for cam_sensor in self.CAMERA_SENSORS:
             self.lidar_files += sorted(glob(os.path.join(self.root, f'LIDAR/{cam_sensor}/*.npy'))) + sorted(glob(os.path.join(self.root, f'LIDAR/{cam_sensor}/*.npz')))
+            self.mask_files += sorted(glob(os.path.join(self.root, f'MASK/{cam_sensor}/*.jpg')))
             self.image_files += sorted(glob(os.path.join(self.root, f'{cam_sensor}/*.jpg')))
         assert len(self.image_files) == len(self.lidar_files), "Dataset corrupted"
+        assert not(self.opt.mask) or len(self.mask_files), "Mask files not exist"
         self.dataset_size = len(self.lidar_files) 
         
-    def __getitem__(self, index):    
+    def __getitem__(self, index):
+        M_tensor = 0
         lidar_path = self.lidar_files[index]
         if lidar_path[-3:] == 'npy':
             points = np.load(lidar_path)
         elif lidar_path[-3:] == 'npz':
             points = np.load(lidar_path)['arr_0']
         else:
-            raise "Error"        
+            raise "Error"
+        if self.opt.mask:
+            mask_path = self.mask_files[index]
+            mask = Image.open(mask_path)
+            mask = (mask == 255) + 1
+            M_tensor = torch.FloatTensor(mask)
         points[0] = points[0] / 255
         points[1] = points[1] / 255
         A_tensor = torch.FloatTensor(points)
@@ -37,7 +45,8 @@ class POVGANDataset(BaseDataset):
         img = Image.open(image_path).convert('RGB')
         B_tensor = self.camera_transform(img)
         input_dict = {'label': A_tensor, 'inst': 0, 'image': B_tensor, 
-                'feat': 0, 'path': lidar_path, 'image_path': image_path}
+                'feat': 0, 'mask': M_tensor,
+                'path': lidar_path, 'image_path': image_path}
         return input_dict
         
     def __len__(self):
