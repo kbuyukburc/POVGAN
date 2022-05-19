@@ -9,6 +9,7 @@ from scipy.spatial.transform import Rotation as R
 from copy import deepcopy
 import os
 import argparse
+from nuscenes.utils.geometry_utils import view_points
 
 parser = argparse.ArgumentParser("NuScenes")
 parser.add_argument("--dataset", "-d", \
@@ -20,6 +21,9 @@ parser.add_argument("--size", "-s", \
 parser.add_argument("--output", "-o", \
         type=str, help="Output folder",
         default="./dataset")
+parser.add_argument("--mask", "-m", \
+        type=str, help="Generate Masks",
+        action='store_true', default=False)
 args = parser.parse_args()
 
 nusc = NuScenes(version='v1.0-trainval', dataroot='/home/kbuyukburc/repo/nuscenes/v1.0-trainval01_blobs', verbose=True)
@@ -38,6 +42,7 @@ first_sample = nusc.get('sample', first_sample_token)
 last_sample = nusc.get('sample', last_sample_token)
 
 dataset_folder = path.join(f"{args.output}_{args.size}")
+mask_folder = path.join(f"{dataset_folder}", "MASK")
 projected_folder = path.join(f"{dataset_folder}", "PROJECTED")
 CAMERA_SENSORS = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']
 
@@ -48,6 +53,10 @@ except:
     pass
 try:
     os.mkdir(projected_folder)    
+except:
+    pass
+try:
+    os.mkdir(mask_folder)
 except:
     pass
 for cam_sensor in CAMERA_SENSORS:
@@ -67,6 +76,10 @@ for cam_sensor in CAMERA_SENSORS:
     try:
         os.mkdir(path.join(projected_folder, cam_sensor))
     except:
+        pass    
+    try:
+        os.mkdir(path.join(mask_folder, cam_sensor))
+    except:
         pass
 
 cntr = 0
@@ -85,7 +98,7 @@ for scene_num in tqdm(range(scenes_num)):
             cam = nusc.get('sample_data', current_sample['data'][cam_sensor])
             cam_img_path = path.join(nusc.dataroot, cam['filename'])
             cam_img = cv2.imread(cam_img_path)
-            cam = nusc.get('sample_data', current_sample['data'][cam_sensor])
+            #cam = nusc.get('sample_data', current_sample['data'][cam_sensor])
             lidar_top = nusc.get('sample_data', current_sample['data']['LIDAR_TOP'])
             lidar_top_path = path.join(nusc.dataroot, lidar_top['filename'])
             lidar_top_bin = np.fromfile(lidar_top_path, dtype=np.float32).reshape(-1,5)[..., :4]    
@@ -141,6 +154,17 @@ for scene_num in tqdm(range(scenes_num)):
             cv2.imwrite(path.join(dataset_folder, f'{cam_sensor}/{cntr}.jpg'), img)
             cv2.imwrite(path.join(projected_folder, f'{cam_sensor}/{cntr}.jpg'), img_projected)
             np.savez_compressed(path.join(dataset_folder, f'LIDAR/{cam_sensor}/{cntr}.npy'), lidar_data)
-
+            # Mask
+            if args.mask:
+                img_path, boxes, camera_intrinsic = nusc.get_sample_data(current_sample['data'][cam_sensor])
+                mask = np.zeros(cam_img.shape[:2], dtype = np.uint8)
+                for box in boxes:
+                    img_corners = view_points(box.corners(), camera_intrinsic, True)[:2, :].T.astype(int)        
+                    all_corners = np.array(np.meshgrid(range(8),range(8),range(8),range(8))).T.reshape(-1, 4)
+                    for corners in all_corners:    
+                        points = np.array([img_corners[corner] for corner in corners])
+                        mask = cv2.fillPoly(mask, pts=[points], color=(255))
+                mask = cv2.resize(mask, (args.size, args.size), interpolation = cv2.INTER_NEAREST_EXACT)
+                cv2.imwrite(path.join(mask_folder, f'{cam_sensor}/{cntr}.jpg'), mask)
         cntr += 1
         current_sample = nusc.get('sample', current_sample['next'])
