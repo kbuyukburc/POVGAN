@@ -13,7 +13,7 @@ class Pix2PixHDModel(BaseModel):
     def init_loss_filter(self, use_gan_feat_loss, use_vgg_loss, use_mask_loss):
         flags = (True, use_gan_feat_loss, use_vgg_loss, use_mask_loss, True, True)
         def loss_filter(g_gan, g_gan_feat, g_vgg, d_real, d_fake, g_mask):
-            return [l for (l,f) in zip((g_gan,g_gan_feat,g_vgg,d_real,d_fake, g_mask),flags) if f]
+            return [l for (l,f) in zip((g_gan,g_gan_feat,g_vgg,g_mask,d_real,d_fake),flags) if f]
         return loss_filter
     
     def initialize(self, opt):
