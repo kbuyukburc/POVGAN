@@ -1,3 +1,4 @@
+from turtle import forward
 import torch
 import torch.nn as nn
 import functools
@@ -65,8 +66,12 @@ def print_network(net):
 ##############################################################################
 # Losses
 ##############################################################################
+
+def weighted_mse_loss(input, target, weight):
+    return (weight * (input - target) ** 2).sum() / weight.sum()
+
 class GANLoss(nn.Module):
-    def __init__(self, use_lsgan=True, target_real_label=1.0, target_fake_label=0.0,
+    def __init__(self, use_lsgan=True, target_real_label=1.0, target_fake_label=0.0,                 
                  tensor=torch.FloatTensor):
         super(GANLoss, self).__init__()
         self.real_label = target_real_label
