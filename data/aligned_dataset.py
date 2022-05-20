@@ -6,6 +6,7 @@ import numpy as np
 import torchvision.transforms as transforms
 import torch
 from glob import glob
+import cv2
 
 class POVGANDataset(BaseDataset):
     CAMERA_SENSORS = ['CAM_FRONT', 'CAM_FRONT_RIGHT', 'CAM_BACK_RIGHT', 'CAM_BACK', 'CAM_BACK_LEFT', 'CAM_FRONT_LEFT']    
@@ -35,7 +36,7 @@ class POVGANDataset(BaseDataset):
             raise "Error"
         if self.opt.mask:
             mask_path = self.mask_files[index]
-            mask = Image.open(mask_path)
+            mask = cv2.imread(mask_path)[..., 0]
             mask = (mask == 255) + 1
             M_tensor = torch.FloatTensor(mask)
         points[0] = points[0] / 255
