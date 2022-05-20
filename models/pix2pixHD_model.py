@@ -10,10 +10,10 @@ class Pix2PixHDModel(BaseModel):
     def name(self):
         return 'Pix2PixHDModel'
     
-    def init_loss_filter(self, use_gan_feat_loss, use_vgg_loss):
-        flags = (True, use_gan_feat_loss, use_vgg_loss, True, True)
-        def loss_filter(g_gan, g_gan_feat, g_vgg, d_real, d_fake):
-            return [l for (l,f) in zip((g_gan,g_gan_feat,g_vgg,d_real,d_fake),flags) if f]
+    def init_loss_filter(self, use_gan_feat_loss, use_vgg_loss, use_mask_loss):
+        flags = (True, use_gan_feat_loss, use_vgg_loss, use_mask_loss, True, True)
+        def loss_filter(g_gan, g_gan_feat, g_vgg, d_real, d_fake, g_mask):
+            return [l for (l,f) in zip((g_gan,g_gan_feat,g_vgg,d_real,d_fake, g_mask),flags) if f]
         return loss_filter
     
     def initialize(self, opt):
@@ -69,7 +69,7 @@ class Pix2PixHDModel(BaseModel):
             self.old_lr = opt.lr
 
             # define loss functions
-            self.loss_filter = self.init_loss_filter(not opt.no_ganFeat_loss, not opt.no_vgg_loss)
+            self.loss_filter = self.init_loss_filter(not opt.no_ganFeat_loss, not opt.no_vgg_loss, opt.mask)
             
             self.criterionGAN = networks.GANLoss(use_lsgan=not opt.no_lsgan, tensor=self.Tensor)   
             self.criterionFeat = torch.nn.L1Loss()
@@ -78,7 +78,7 @@ class Pix2PixHDModel(BaseModel):
                 
         
             # Names so we can breakout loss
-            self.loss_names = self.loss_filter('G_GAN','G_GAN_Feat','G_VGG','D_real', 'D_fake')
+            self.loss_names = self.loss_filter('G_GAN','G_GAN_Feat','G_VGG','D_real', 'D_fake', 'G_mask')
 
             # initialize optimizers
             # optimizer G
@@ -185,12 +185,15 @@ class Pix2PixHDModel(BaseModel):
                         self.criterionFeat(pred_fake[i][j], pred_real[i][j].detach()) * self.opt.lambda_feat
                    
         # VGG feature matching loss
+        loss_G_mask = 0
+        if self.opt.mask:
+            loss_G_mask = networks.weighted_mse_loss(fake_image, real_image, mask)
         loss_G_VGG = 0
         if not self.opt.no_vgg_loss:
             loss_G_VGG = self.criterionVGG(fake_image, real_image) * self.opt.lambda_feat
         
         # Only return the fake_B image if necessary to save BW
-        return [ self.loss_filter( loss_G_GAN, loss_G_GAN_Feat, loss_G_VGG, loss_D_real, loss_D_fake ), None if not infer else fake_image ]
+        return [ self.loss_filter( loss_G_GAN, loss_G_GAN_Feat, loss_G_VGG, loss_D_real, loss_D_fake, loss_G_mask), None if not infer else fake_image ]
 
     def inference(self, label, inst, image=None):
         # Encode Inputs        
