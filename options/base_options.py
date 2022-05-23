@@ -59,7 +59,10 @@ class BaseOptions():
         self.parser.add_argument('--n_downsample_E', type=int, default=4, help='# of downsampling layers in encoder') 
         self.parser.add_argument('--nef', type=int, default=16, help='# of encoder filters in the first conv layer')        
         self.parser.add_argument('--n_clusters', type=int, default=10, help='number of clusters for features')        
-
+        
+        # POVGAN features
+        self.parser.add_argument('--mask', action='store_true')
+        
         self.initialized = True
 
     def parse(self, save=True):
