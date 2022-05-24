@@ -37,7 +37,7 @@ class POVGANDataset(BaseDataset):
         if self.opt.mask:
             mask_path = self.mask_files[index]
             mask = cv2.imread(mask_path)[..., 0]
-            mask = (mask == 255) + 1
+            mask = ((mask == 255) * 5) + 1
             M_tensor = torch.FloatTensor(mask)
         points[0] = points[0] / 255
         points[1] = points[1] / 255
