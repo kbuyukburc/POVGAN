@@ -16,7 +16,7 @@ from util.mask_rcnn import instance_segmentation
 opt = BenchmarkOptions().parse(save=False)
 opt.nThreads = 1   # test code only supports nThreads = 1
 opt.batchSize = 1  # test code only supports batchSize = 1
-opt.serial_batches = True  # no shuffle
+opt.serial_batches = False  # no shuffle
 opt.no_flip = True  # no flip
 
 data_loader = CreateDataLoader(opt)
