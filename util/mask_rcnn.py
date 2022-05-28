@@ -47,7 +47,7 @@ def get_prediction(image, model, threshold):
     return masks, pred_boxes, pred_class
 
 
-def random_colour_masks(image):
+def random_colour_masks(image):    
     colours = [[0, 255, 0],[0, 0, 255],[255, 0, 0],[0, 255, 255],[255, 255, 0],[255, 0, 255],[80, 70, 180],[250, 80, 190],[245, 145, 50],[70, 150, 250],[50, 190, 190]]
     r = np.zeros_like(image).astype(np.uint8)
     g = np.zeros_like(image).astype(np.uint8)
@@ -63,12 +63,23 @@ def instance_segmentation(image, model, threshold=0.5, rect_th=1, text_size=1, t
         img = cv2.imread(image)
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     else:
-        img = np.array(image)    
-    for i in range(len(masks)):
-        rgb_mask = random_colour_masks(masks[i])
-        img = cv2.addWeighted(img, 1, rgb_mask, 0.5, 0)        
-        cv2.rectangle(img, boxes[i][0], boxes[i][1],color=(0, 255, 0), thickness=rect_th)
-        cv2.putText(img,pred_cls[i], boxes[i][0], cv2.FONT_HERSHEY_SIMPLEX, text_size, (0,255,0),thickness=text_th)
+        img = np.array(image) 
+        
+    if isinstance(masks, list):
+        print(len(masks))
+        print(masks)
+        # rgb_mask = random_colour_masks(masks)
+        # img = cv2.addWeighted(img, 1, rgb_mask, 0.5, 0)        
+        # cv2.rectangle(img, boxes[i][0], boxes[i][1],color=(0, 255, 0), thickness=rect_th)
+        # cv2.putText(img,pred_cls[i], boxes[i][0], cv2.FONT_HERSHEY_SIMPLEX, text_size, (0,255,0),thickness=text_th)
+    elif len(masks.shape) == 3:
+        for i in range(len(masks)):
+            rgb_mask = random_colour_masks(masks[i])
+            img = cv2.addWeighted(img, 1, rgb_mask, 0.5, 0)        
+            cv2.rectangle(img, boxes[i][0], boxes[i][1],color=(0, 255, 0), thickness=rect_th)
+            cv2.putText(img,pred_cls[i], boxes[i][0], cv2.FONT_HERSHEY_SIMPLEX, text_size, (0,255,0),thickness=text_th)
+    else:
+        pass
     return img, counter
 
 
