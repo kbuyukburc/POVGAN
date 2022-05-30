@@ -22,7 +22,7 @@ parser.add_argument("--output", "-o", \
         type=str, help="Output folder",
         default="./dataset")
 parser.add_argument("--mask", "-m", \
-        type=str, help="Generate Masks",
+        help="Generate Masks",
         action='store_true', default=False)
 args = parser.parse_args()
 
