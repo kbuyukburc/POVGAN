@@ -187,6 +187,9 @@ class Pix2PixHDModel(BaseModel):
         # VGG feature matching loss
         loss_G_mask = 0
         if self.opt.mask:
+            mask = Variable(mask.data.cuda())
+            # if self.opt.data_type == 16:
+            #     mask = mask.half()
             loss_G_mask = networks.weighted_mse_loss(fake_image, real_image, mask) * 20
         loss_G_VGG = 0
         if not self.opt.no_vgg_loss:

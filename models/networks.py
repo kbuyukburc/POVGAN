@@ -68,7 +68,8 @@ def print_network(net):
 ##############################################################################
 
 def weighted_mse_loss(input, target, weight):
-    return (weight * (input - target) ** 2).sum() / weight.sum()
+    #print(weight.dtype, input.dtype, target.dtype)
+    return ((weight[:, None, ...] * (input - target) ** 2) / weight.sum(axis=[1,2])[:, None, None, None]).sum()
 
 class GANLoss(nn.Module):
     def __init__(self, use_lsgan=True, target_real_label=1.0, target_fake_label=0.0,                 

@@ -2,6 +2,7 @@ import time
 import os
 import numpy as np
 import torch
+from torch.cuda.amp import *
 from torch.autograd import Variable
 from collections import OrderedDict
 from subprocess import call
@@ -40,12 +41,17 @@ print('#training images = %d' % dataset_size)
 
 model = create_model(opt)
 visualizer = Visualizer(opt)
-if opt.fp16:    
-    from apex import amp
-    model, [optimizer_G, optimizer_D] = amp.initialize(model, [model.optimizer_G, model.optimizer_D], opt_level='O1')             
-    model = torch.nn.DataParallel(model, device_ids=opt.gpu_ids)
+if opt.fp16:
+    optimizer_G, optimizer_D = model.optimizer_G, model.optimizer_D
 else:
     optimizer_G, optimizer_D = model.module.optimizer_G, model.module.optimizer_D
+scaler = GradScaler()
+# if opt.fp16:    
+#     from apex import amp
+#     model, [optimizer_G, optimizer_D] = amp.initialize(model, [model.optimizer_G, model.optimizer_D], opt_level='O1')             
+#     model = torch.nn.DataParallel(model, device_ids=opt.gpu_ids)
+# else:
+#     optimizer_G, optimizer_D = model.module.optimizer_G, model.module.optimizer_D
 
 total_steps = (start_epoch-1) * dataset_size + epoch_iter
 
@@ -67,33 +73,45 @@ for epoch in range(start_epoch, opt.niter + opt.niter_decay + 1):
         save_fake = total_steps % opt.display_freq == display_delta
 
         ############## Forward Pass ######################
-        losses, generated = model(Variable(data['label']), Variable(data['inst']), 
-            Variable(data['image']), Variable(data['feat']), Variable(data['mask']), infer=save_fake)
+        with autocast():
+            losses, generated = model(Variable(data['label']), Variable(data['inst']), 
+                Variable(data['image']), Variable(data['feat']), Variable(data['mask']), infer=save_fake)
 
-        # sum per device losses
-        losses = [ torch.mean(x) if not isinstance(x, int) else x for x in losses ]
-        loss_dict = dict(zip(model.module.loss_names, losses))
+            # sum per device losses
+            losses = [ torch.mean(x) if not isinstance(x, int) else x for x in losses ]
+            if opt.fp16:
+                loss_dict = dict(zip(model.loss_names, losses))
+            else:
+                loss_dict = dict(zip(model.module.loss_names, losses))
 
-        # calculate final loss scalar
-        loss_D = (loss_dict['D_fake'] + loss_dict['D_real']) * 0.5
-        loss_G = loss_dict['G_GAN'] + loss_dict.get('G_GAN_Feat',0) + loss_dict.get('G_VGG',0) + loss_dict.get('G_mask', 0)
+            # calculate final loss scalar
+            loss_D = (loss_dict['D_fake'] + loss_dict['D_real']) * 0.5
+            loss_G = loss_dict['G_GAN'] + loss_dict.get('G_GAN_Feat',0) + loss_dict.get('G_VGG',0) + loss_dict.get('G_mask', 0)
 
         ############### Backward Pass ####################
         # update generator weights
         optimizer_G.zero_grad()
         if opt.fp16:                                
-            with amp.scale_loss(loss_G, optimizer_G) as scaled_loss: scaled_loss.backward()                
+            scaler.scale(loss_G).backward()
+            scaler.step(optimizer_G)
+            #with amp.scale_loss(loss_G, optimizer_G) as scaled_loss: scaled_loss.backward()                
         else:
             loss_G.backward()          
-        optimizer_G.step()
+            optimizer_G.step()
 
         # update discriminator weights
         optimizer_D.zero_grad()
-        if opt.fp16:                                
-            with amp.scale_loss(loss_D, optimizer_D) as scaled_loss: scaled_loss.backward()                
+        if opt.fp16:
+            scaler.scale(loss_D).backward()
+            scaler.step(optimizer_D)
+            #with amp.scale_loss(loss_D, optimizer_D) as scaled_loss: scaled_loss.backward()                
         else:
             loss_D.backward()        
-        optimizer_D.step()        
+            optimizer_D.step()
+            
+        if opt.fp16:
+            scaler.update()
+
 
         ############## Display results and errors ##########
         ### print out errors
