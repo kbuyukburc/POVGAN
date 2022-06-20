@@ -39,8 +39,8 @@ class POVGANDataset(BaseDataset):
             mask = cv2.imread(mask_path)[..., 0]
             mask = ((mask == 255) * 5) + 1
             M_tensor = torch.FloatTensor(mask)
-        points[0] = points[0] / 255
-        points[1] = points[1] / 255
+        points[0] = (points[0] / 125) - 1
+        points[1] = (points[1] / 255) - 1
         A_tensor = torch.FloatTensor(points)
         image_path = self.image_files[index]
         img = Image.open(image_path).convert('RGB')
